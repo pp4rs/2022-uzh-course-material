@@ -1,0 +1,277 @@
+---
+title: "Regression"
+output: html_document
+date: '2022-08-30'
+
+---
+
+Note: This file is greatly based on the material prepared by Julian Langer and Lachlan Deer for the programming course for previous years
+## Libraries
+```{r, message = F }
+
+library(dplyr)      # data manipulation
+library(tibble)     # nicer dataframes
+library(fixest)     # Regression
+library(modelsummary) # tables
+library(readxl)
+library(vtable) # summary table
+
+```
+
+### Import data
+
+We will replicate some regressions in this paper: https://www.aeaweb.org/articles?id=10.1257/aer.98.3.808
+```{r}
+ajry_df = read_xls("ajry.xls", sheet = 2) %>% 
+  arrange(code_numeric, year_numeric) %>% 
+  rename(log_gdp_pc = lrgdpch,
+         freedom_house = fhpolrigaug)
+```
+
+### Summary statistics
+
+First lets create a table with the summary statistics of the variables and export it to latex
+```{r}
+st(ajry_df, vars = c('freedom_house','log_gdp_pc','education','laborshare'), out='latex',file='mytable1.tex')
+```
+
+Let's created lagged vbles
+
+```{r}
+# generate lagged variables
+ajry_df = ajry_df %>% 
+  group_by(code_numeric) %>% 
+  mutate(lag_log_gdp_pc = lag(log_gdp_pc, order_by = year_numeric),
+         lag_freedom_house = lag(freedom_house, order_by = year_numeric),
+         lag2_nsave = lag(nsave, 2, order_by = year_numeric),
+         lag_worldincome = lag(worldincome, order_by = year_numeric)) %>% 
+  filter(sample == 1)
+```
+
+### Regressions
+
+Now let's start with a simple OLS regression. The simplest way to do this is using the 'lm' command, but it does not allow for a lot of flexibility. So we'll just use it once here and then change to using the commands in the fixest package
+
+```{r}
+OLS1 = lm(freedom_house ~ lag_freedom_house + lag_log_gdp_pc, data = ajry_df)
+summary(OLS1)
+```
+
+```{r}
+# Checking frequency by group
+#table(ajry_df %>% group_by(country,year) %>% count())
+```
+
+**FEOLS package**
+
+We will be using the feols command from the fixest package. Seems to be the fastest option available: https://lrberge.github.io/fixest/
+
+The basic synyax of feols is: 
+**feols(dependent_var ~ independent_vars | fixed effects | IV_formula, cluster/vcov , data = my_data)**
+
+Let's just replicate the regression we ran in the line above: 
+```{r}
+FE1 = feols(freedom_house ~ lag_freedom_house + lag_log_gdp_pc, data = ajry_df)
+summary(FE1)
+```
+
+
+Now let's add year fixed effects to the regression. Note that the std errors are clustered at the level of the FE if we do not specify anything
+```{r}
+FE2 = feols(freedom_house ~  lag_freedom_house + lag_log_gdp_pc  | year_numeric , vcov='hetero', data = ajry_df)
+summary(FE2)
+```
+
+
+Lets add country fixed effects and cluster at the country level
+```{r}
+FE3 = feols(freedom_house ~ lag_freedom_house + lag_log_gdp_pc | year_numeric + code_numeric , cluster = c('code'), data = ajry_df)
+summary(FE3)
+```
+
+**Additional features**
+
+**HC3 std errors**
+Now let's compute HC3 standard errors
+```{r}
+FE_HC1 = feols(freedom_house ~  lag_freedom_house + lag_log_gdp_pc  + i(year_numeric) , vcov = function(x) sandwich::vcovHC(x, type = "HC1"), data = ajry_df)
+FE_HC3 = feols(freedom_house ~  lag_freedom_house + lag_log_gdp_pc  + i(year_numeric) , vcov = function(x) sandwich::vcovHC(x, type = "HC3"), data = ajry_df)
+modelsummary(list(FE_HC1,FE_HC3))
+```
+
+**Adding many variables w/ same pattern**
+
+Now lets assume we want to include all the variables starting with the word 'lag' in the regression:
+
+```{r}
+library(stringr)
+
+stringv = str_split(str_subset(colnames(ajry_df), 'lag'),  pattern = " ")
+
+feols(as.formula(paste('freedom_house ~ i(year_numeric) + ',  paste(stringv, collapse = " + "), sep = '')) , data=ajry_df)
+
+```
+
+How many countries to we have
+```{r}
+#n_distinct(ajry_df$code)
+#unique(ajry_df$code)
+```
+
+**Instrumental variables**
+
+Now let's add instruments
+
+```{r}
+ajry_df = ajry_df %>% group_by(country) %>% mutate(lag2_nsave = lag(nsave , 2, order_by = year_numeric))
+
+IV1 = feols(freedom_house ~ lag_freedom_house 
+            | year_numeric + country 
+            | lag_log_gdp_pc ~ lag2_nsave, cluster = c('country') , 
+            #dof = dof(fixef.K = 'full'),
+            data = ajry_df)
+
+summary(IV1)
+```
+
+## Retrieving the regression results
+
+Frequently, we want to do something with the results of the regressions. For this we have to know where R stores the coefficients, standard errors, etc. 
+
+First let's have a look at the coefficients:
+```{r}
+FE1$coefficients['lag_freedom_house']
+FE1$coefficients[2]
+```
+
+If I want to see the first stage results:
+
+```{r}
+IV1$iv_first_stage
+```
+
+## Post-estimation tests
+Lets assume we want to jointly test that all the coefficients are equal to zero. This is a Wald test
+
+```{r}
+library(aod)
+wald.test(Sigma = vcov(FE_HC3), b=coef(FE_HC3), Terms = 1:2)
+```
+Now lets assume we want to test whether beta1 = beta2
+
+```{r}
+
+wald.test(Sigma = vcov(FE2), b=coef(FE2), L = matrix(c(-1,1),1,2))
+```
+
+## Exporting the results to a regression table
+
+To export the results to Latex, we will use the package "modelsummary"
+
+```{r}
+library(modelsummary)
+modelsummary(OLS1)
+```
+Now assume how we want to make a table with the results of all the regressions that we have run 
+
+```{r}
+listmodels = list('OLS' = FE1,
+                  'FE1' = FE2,
+                  'FE2' = FE3,
+                  'IV' = IV1)
+
+modelsummary(listmodels)
+
+cm = c('lag_freedom_house' = 'Democracy$_{t-1}$',
+       'lag_log_gdp_pc' = 'LogGDP$_{t-1}$',
+       'fit_lag_log_gdp_pc' = 'LogGDP$_{t-1}$',
+       '(Intercept)' = 'Constant')
+
+modelsummary(listmodels, coef_map = cm)
+```
+Now assume that we do not want to keep all the statistics of the regression that we see on the table above. Let's assume that we only want to keep the number of Obs, Adjusted R^2 and that we want to change the text for the Std errors and the FE
+
+```{r}
+# raw: a string with the name of a column produced by broom::glance(model) or get_gof(model)
+#clean: a string with the “clean” name of the statistic you want to appear in your final table. 
+#fmt: a string which will be used to round/format the string in question (e.g., "%.3f"). This follows the same standards as the fmt argument in ?modelsummary.
+get_gof(FE3)
+stat_table = tribble(~raw, ~clean, ~fmt, # See for tribble function https://tibble.tidyverse.org/reference/tribble.html 
+                     'adj.r.squared', 'Adj.R$2$',2,
+                     'nobs', 'N', 0,
+                     'vcov.type', 'Std Errors', 0,
+                     'FE: year_numeric', 'Year FE', 0,
+                     'FE: code_numeric', 'Country FE', 0
+                     )
+modelsummary(listmodels, coef_map = cm, gof_map = stat_table)
+
+```
+Lets add new rows to the table and stars
+
+```{r}
+
+rows = tribble(~term,~m1,~m2,~m3, ~m4,
+               'Std errors', 'Homosk', 'Heterosk-Robust', 'Clustered','Clustered')
+
+stat_table = tribble(~raw, ~clean, ~fmt, # See for tribble function https://tibble.tidyverse.org/reference/tribble.html 
+                     'adj.r.squared', 'Adj.R$2$',2,
+                     'nobs', 'N', 0,
+                     'FE: year_numeric', 'Year FE', 0,
+                     'FE: code_numeric', 'Country FE', 0
+                     )
+
+
+modelsummary(listmodels, coef_map = cm, gof_map = stat_table, stars = c('*' = 0.1 , '**'=0.05, '***'=0.01),  add_rows = rows)
+```
+
+Exporting tables to Latex:
+
+```{r}
+if (!dir.exists('out_tex')){
+  dir.create('out_tex')
+}
+
+modelsummary(listmodels, coef_map = cm, 
+             gof_map = stat_table, 
+             stars = c('*' = 0.1 , '**'=0.05, '***'=0.01),  
+             add_rows = rows,
+             output = 'out_tex/Table.tex')
+
+```
+
+
+Now let's do other types of regressions:
+
+**Probit**
+
+```{r}
+probit = glm(socialist ~ log_gdp_pc, family = binomial(link = "probit"), data = ajry_df)
+modelsummary(probit)
+```
+
+**Differences in differences**
+
+```{r}
+data(base_did)
+head(base_did)
+```
+```{r}
+est_did = feols(y ~ x1 + i(period, treat, 5) | id + period, base_did)
+est_did
+```
+To display the treatment effects on a graph, we can use the function iplot. This function plots the results of estimations (coefficients and confidence intervals). The function iplot restricts the output to variables created with i, either interactions with factors or raw factors.
+
+```{r}
+iplot(est_did)
+```
+
+
+
+
+
+
+
+
+
+
+
