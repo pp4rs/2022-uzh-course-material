@@ -1,0 +1,196 @@
+---
+title: "ReadR_Parsing"
+output: html_document
+date: '2022-08-15'
+---
+
+This file is greatly based on the material prepared by Julian Langer and Lachlan Deer for the programming course for previous years
+
+## Reading data
+
+
+In this section we will learn how to read in and export data in different formats 
+
+### csv files 
+One of the most common files you'll have to import with R are csv (comma-separated-values) files.
+
+Base R allows you to read csv files with the "read.csv" command. However, we will prefer another command from the "readr" library. 
+
+"read.csv" opens the data as a data.frame, the package "readr" opens data as a tibble, which we prefer as discussed before. Also, tibbles load faster than data.frames
+
+```{r, message = F}
+library(readr)
+library(tibble)
+library(dplyr)
+getwd() # let's check the working directory
+df_adh <- read_csv("../Datasets/adh_data.csv")
+```
+
+### Reading delimited data 
+More generally, "readr" has functions to read in other types of delimited data
+
+* `read_csv()`: comma delimited
+* `read_csv2()`: semicolon delimited
+* `read_tsv()`: tab delimited
+* `read_delim()`: any delimiter
+
+For instance:
+
+```{r, message = F}
+df_adh <- read_delim("../Datasets/adh_data.csv", delim = ",")
+```
+
+## Parsing data correctly with the `parse` functions
+
+Sometimes columns are not correctly interpreted when they are read in. For these vectors, we can parse them differently using the `parse` functions.  These functions take a character vector and return a more specialised vector like a logical, integer, or date. For example, assume we want to retrieve the numbers of the following column
+
+```{r, error=TRUE}
+my_column = c("100$", "20%", "Something with a 100")
+parse_number(my_column)
+```
+There are a bunch of functions, each for a different kind of data type:  
+
+* `parse_logical`
+* `parse_number` (`parse_double`, `parse_integer`)
+* `parse_character`
+* `parse_datetime` (`parse_date`, `parse_datetime`)
+
+Here are some more examples
+
+
+```{r}
+parse_logical(c("true", "false", "t", "T", "f"))
+```
+```{r}
+parse_number(c("$1,234.5", "$12.45"))
+```
+What if we have a file with the comma and the dot inverted?
+
+```{r}
+parse_number(c("$1.234,5", "$12,45"), locale = locale(decimal_mark = ","))
+```
+
+```{r}
+# Used in America
+parse_number("$123,456,789")
+#> [1] 123456789
+
+# Used in many parts of Europe
+parse_number("123.456.789", locale = locale(grouping_mark = "."))
+#> [1] 123456789
+
+# Used in Switzerland
+parse_number("123'456'789", locale = locale(grouping_mark = "'"))
+#> [1] 123456789
+```
+
+**Parsing characters**
+
+You would think parsing characters is pretty easy. There can be difficulties though because not everybody uses the same character encoding. To learn more about this topic, take a look at this website: http://www.w3.org/International/articles/definitions-characters/. We only need to know that different encodings exist and they can lead to problems. R usually assumes to 'UTF-8' encoding (and you should use it too!). See what happens if we read in characters with `Latin-1` encoding: 
+
+```{r}
+x1 = "El Ni\xf1o was particularly bad this year"
+parse_character(x1)
+```
+Well, that does not look nice. But luckily enough, we can use the `locale` function to tell `readr` that the string is encoded with `Latin-1`. 
+```{r}
+parse_character(x1, locale = locale(encoding = "Latin1"))
+```
+Now, this time the parsing is correct! You can also use `readr` to try to guess the encoding with the `guess_encoding` function. Look up its help file if you want to know more.  
+
+** Parsing dates and times **
+Sometimes it is important for us to read certain data as date or time. We can also to this by parsing:
+
+```{r}
+parse_date("2016-09-08") # default option is Y-m-d
+parse_date("2016/02/29") + 1 # It can distinguish leap years!
+```
+
+```{r}
+parse_datetime("2016-09-08T0708")
+parse_datetime("20160908T0708")
+
+```
+date_format specified by the locale(). The default value is %AD which uses an automatic date parser that recognises dates of the format Y-m-d or Y/m/d.
+
+```{r}
+parse_date("27/05/1987", "%d/%m/%Y")
+```
+Now let's assume we want to extract the month, we can do:
+
+```{r}
+format(parse_date("27/05/1987", "%d/%m/%Y"), "%m")
+```
+```{r}
+library(hms)
+parse_time("01:10 am") 
+```
+
+## Parsing and reading at the same time
+
+Each `parse` function has a corresponding `col` function. This allows you to use the `parse` function to find out how to correctly parse a column and then specify the correct parsing right at the beginning of the data processing using the corresponding `col` function. I usually read in data in three steps.
+
+1. First, I read in all columns as character vectors. This allows me to browse the data and determine the correct parsing. To read in every column as a character vector, you can use the `.default` argument in the `col_types` function. 
+
+```{r}
+challenge1 = read_csv(readr_example("challenge.csv"),  
+                      # there's an example dataset in the readr package called challenge.csv
+                     col_types = cols(
+                       .default = col_character()
+                     ))
+```
+
+2. I can try out different parsers using the `parse` functions. (Note that you can use the `parse` functions from the `readr` package together with other packages such as `readxl`). In this case, browsing and parsing will lead you to conclude that the correct parsers are `parse_double` and `parse_date`, respectively. 
+
+3. Finally, we specify the correct parsers directly at the beginning of the data processing stage using the `col` functions that correspond to the `parse` functions. 
+```{r}
+challenge2 = read_csv(readr_example("challenge.csv"),
+                      col_types = cols(
+                        x = col_double(),
+                        y = col_date()
+                      ))
+head(challenge2)
+```
+
+## Writing `csv` files
+You can use the `readr` package to write `csv` files as well. In this case, we want to save our cleaned up dataframe as a `csv` file in a `dataframes` sub-folder. For this, we first check whether the sub-folder already exists. If it does not, we create it. 
+```{r}
+if (!file.exists("../new_dataframes")) {
+  dir.create("../new_dataframes")
+}
+```
+Then, we write the `csv` file using the `write_csv` function. 
+```{r}
+#write_csv(challenge2, "../dataframes/challenge2.csv")
+```
+Note that a `csv` file does not store the information about the correct parsing of the data columns.
+
+We have to specify the correct parsing again! If you only work with `R` and the dataframe is not too big, you can store the dataframe as an `RDS` file instead.
+
+## Write and read `RDS` files with `readr`
+There is not much to say here apart from the fact that the `RDS` file 'remembers' the correct parsing. 
+```{r}
+#write_rds(challenge2, "./dataframes/challenge2.rds")
+#challenge_rds = read_rds("./dataframes/challenge2.rds")
+#head(challenge_rds)
+```
+
+## Reading in Excel sheets and Stata data with `readxl` and `haven` 
+Many datasets are stored in Excel sheets. You can read them in using the `readxl` package. A similar package, `haven`, exists for Stata files. I will not use them here, but can look at the helpfiles for the commands `read_excel` and `read_dta`. 
+```{r}
+library(readxl)
+help(read_excel)
+```
+
+```{r, message = FALSE}
+library(haven)
+help(read_dta)
+```
+
+If you want to try them out, you can use the data files from the 'Baby-Wooldridge' here: http://www.cengage.com/aise/economics/wooldridge_3e_datasets/. 
+
+
+
+
+
+

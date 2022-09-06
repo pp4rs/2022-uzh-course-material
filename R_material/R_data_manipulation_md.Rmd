@@ -1,0 +1,434 @@
+---
+title: "R data manipulation"
+output: html_document
+date: '2022-08-15'
+---
+
+This file is greatly based on the material prepared by Julian Langer and Lachlan Deer for the programming course for previous years
+
+## Working with data
+
+```{r}
+rm(list = ls())
+```
+
+It is rare that we obtain a data set and it looks exactly as we want it. Usually, we drop variables, transform variables, merge data etc. While it is possible to perform these tasks using base R, there is now a package called `dplyr` which simplifies them enormously. Before we actually start working with it, we have to clean our workspace and load some packages. 
+
+For data manipulation we will be using packages from Tidyverse: https://www.tidyverse.org/packages/. Tidyverse is a collection of R packages that are designed for data science. They are super useful and easy to use for working with data in general. They are used mainly with the pipe operator.
+
+```{r, message= F}
+library(tibble)   # nicer dataframes
+library(dplyr)    # data transformations
+library(Ecdat)    # Econ datasets https://cran.r-project.org/web/packages/Ecdat/Ecdat.pdf
+library(vtable) # summary table
+```
+
+## Data.frame vs Tibbles 
+
+Tidyverse package: A tibble, or tbl_df, is a modern reimagining of the data.frame, keeping what time has proven to be effective, and throwing out what is not. 
+
+Two main differences:
+ 1. Subsetting: Tibbles clearly delineate [ and [[: [ always returns another tibble, [[ always returns a vector. While d.f [ creates a vector 
+ 2. Printing: Tibbles are designed so that you don’t accidentally overwhelm your console when you print large data frames. But sometimes you need more output than the default display. There are a few options that can help.
+ 
+ Tibbles don't have rownames (why is this good?)
+ 
+ You can check these differences with a sample dataframe:
+ 
+
+```{r}
+  data("PatentsRD")
+  class(PatentsRD)
+  class(PatentsRD[,1])
+  class(tibble(PatentsRD)[,1])
+  class(tibble(PatentsRD)[[1]])
+  st(PatentsRD)
+```
+How to construct a tibble from scratch:
+
+```{r}
+#tibble(...) Construct by columns.
+
+tibble(x = 1:5, y = c("a", "b", "c", "NA", "e"))
+
+#tribble(...) Construct by rows. 
+
+tribble(~x, ~y,
+1, "a", 2, "b", 3, "c")
+```
+
+
+
+
+## Dplyr package  
+
+The `dplyr` package contains a number of single-table verbs which can be used to handle most of the day-to-day data work. The structure of the commands is always the same: `verb(dataframe, operation)`. The output of the functions is again a dataframe. Let's look at each of the verbs in turn.
+
+### **Filter**
+
+We start with `filter`. Filter can be used to select a subset of observations based on the truth value of a condition. 
+
+```{r}
+df_patents = tibble(PatentsRD)
+# Let's see the values of the variable 'fi' in the dataframe
+unique(df_patents$fi)
+filter(df_patents, fi == 41)
+# We can add more conditions:
+filter(df_patents, fi == 42 & year > 1989)
+```
+You can add as many conditions as you want, these are then linked by a logical 'and'. You can also create more complicated statements with the following logical and relational operators:
+
++ `==` equal
++ `!=` not equal
++ `!` not 
++ `&` and
++ `|` or 
++ `>` greater
++ `<` smaller
++ `>=` greater or equal
++ `<=` smaller or equal
++ %% remainder
++ %/% integer division
+
+We can also filter out the NA values 
+
+```{r}
+filter(df_patents, is.na(spil)) # in this case our dataframe does not have missing values 
+```
+
+## Disgression on the Pype Operator  
+
+Now before we continue, I would like to introduce the pipe operator "%>%"
+The operator makes it possible to easily chain a sequence of calculations. I think the best way to interpret this operator is as a replacement of the word "then". For example you open up a dataframe and "then" you apply a certain function to it, and "then" you can group it according to a vble, and "then" you apply another function, and so on....
+
+When using the pipe operator, you can replace the name of the dataframe you are working on with "." or also simply delete it
+
+For example, we can replace the previous lines of code by:
+```{r}
+df_patents %>% filter(., fi == 41)
+# Or even more simply
+df_patents %>% filter(fi == 41)
+```
+Here is an example where you can't eliminate the "." (we will talk more about regressions later)
+
+```{r}
+df_patents %>% lm(patent ~ rdexp, data = .)
+```
+
+## Back to dplyr  
+
+### **Arrange**
+
+ Next in line, we have the `arrange` command. It can be used to change the order of a dataframe according to one or several variables. For example, assume we want to sort the dataframe by year and number of patent applications 
+
+```{r}
+df_patents %>% arrange(year, -patent)
+# Applications from largest to smallest
+df_patents %>% arrange(year, -patent)
+```
+
+### **Select**
+
+Our next verb can be used to select variables from a dataframe. Let's look at the columns of the dataframe
+```{r}
+head(df_patents)
+```
+Assume we only want to keep the variables year, fi and patent:
+
+```{r}
+df_patents %>% select(year, fi, patent)
+```
+Now assume we want to keep all variables except "spil":
+
+```{r}
+df_patents %>% select(-spil)
+```
+
+Note that select also works nicely to reorder the columns of a dataframe. For example, if we want to have the `fi` in first place, we can write. 
+
+```{r}
+df_patents %>% select(fi, everything())
+```
+The function `everthing` is a function to capture all other variables except the ones explicitly mentioned. There are also some other helper functions to select all variables that start, end, or contain with a certain string. 
+
++ starts_with("string")
++ ends_with("string")
++ contains("string")
++ matches("reg_expression")
+
+### **Mutate**
+
+With `mutate` we can create new variables. For example we may want to calculate the number of patent applications over R&D expenditures for each firm.
+
+```{r}
+df_patents = df_patents %>% mutate(pt_rd = patent/ rdexp)
+head(df_patents)
+```
+You can use several functions to create new variables: 
+
++ arithmetic operators: `+, -, *, /, ^` 
+        9 %% 2 # Remainder
+        9 %/% 2 # integer division
++ aggregate functions: you can use aggregate functions such as `sum` and `mean` which we will talk about later
++ `log`: to create variables in logs, you can use `log`, `log2`, and `log10`
++ offsets: you can use `lag` and `lead` to refer to leading or lagged values, provided that your data are grouped (more about that later)
++ logical comparisons: you can create Boolean variables using logical comparisons such as `<, <=, >=, !=, ==`. 
+
+Here are some other useful examples of functions you can use with mutate:
+
+```{r}
+# Case_when: this is useful when you have multiple if_else statements
+#  A sequence of two-sided formulas. The left hand side (LHS) determines which values match this case. The right hand side (RHS) provides the replacement value.
+# the nice thing is that the arguments are evaluated in order, so you must  proceed from the most specific to the most general and the syntax is simplified: 
+df_patents = df_patents %>% mutate(rdexp_clasif = case_when(
+  rdexp < 4 ~ 'Low',
+  rdexp<7 ~ 'Medium',
+  rdexp >= 7 ~ 'High',
+  TRUE ~ 'other'))
+```
+Why the true on the final line?  when we use case_when, we use two-sided expressions to evaluate a condition, and then output a value if that condition is TRUE. If the left hand side is TRUE, then case_when() outputs the value on the right hand side.
+
+In this syntax example here, the second line hard-codes the value TRUE in that final two-sided expression. This forces case_when to output the “else-output-value” if none of the previous conditions were TRUE.
+
+### **Summarise**
+
+The last single-table verb, we'll get to know is summarise. It conjunction with aggregate functions  such as `mean` it can be used to collapse our dataframe. 
+
+```{r}
+df_patents %>% summarise(rdexp_mean = mean(rdexp, na.rm = T))
+```
+As you can see, this collapses our dataframe to just one number, the average age of the persons in the sample. It gets more interesting if we structure our dataframe before applying `summarise`. Thus we now introduce the **group_by** operator. 
+
+### **Grouping data**
+
+Most data operations are done on groups defined by variables. group_by() takes an existing tbl and converts it into a grouped tbl where operations are performed "by group". ungroup() removes grouping.
+
+In my experience, group_by() is mostly used with summarise() and mutate()
+
+```{r}
+df_patents %>% group_by(fi) %>% summarise(mean_applic = mean(patent))
+```
+```{r}
+df_patents %>% group_by(fi) %>% mutate(mean_applic = mean(patent)) %>% ungroup()
+glimpse(df_patents) # see what your data is grouped by
+```
+
+Of course, `mean` is not the only aggregate function that we can use in combination with `summarise` or `mutate`. Here are some more:
+
++ `sum(x)`: create group-wise sum for variable `x`
++ `median(x)`: create group-wise median for variable `x`
++ `sd(x)`: group-wise standard deviation for variable `x`
++ `min(x)`: minimum by group for variable `x`
++ `max(x)`: see above
++ `quantile(x, v)`: vth quantile for variable `x` by group
++ `first(x)`: first x-value in group by group
++ `last(x)`: last x-value in group by group
++ `n()`: number of values in group by group 
++ `n_distinct(x)`: number of distinct values in group by group
+
+### **Functions and logical operators**
+
+We can also combine these functions with logical operators. For example, let's assume we want to calculate the average R&D expenditure for each firm, from the year 1986 onwards:
+```{r}
+df_patents %>% group_by(fi) %>% summarise(mean(rdexp[year>1985])) %>% ungroup()
+```
+### **Combining functions using the pipe operator**
+Now we can combine many of these functions using the pipe operator. Let's assume we want to create a new dataset with the average R&D expenditure, Patent applications and number of firms by sector of economic activity, from the year 1985 to 1990
+
+```{r}
+df_patents_new = df_patents %>% filter(year>1984 & year < 1991) %>%
+                                group_by(sector, year) %>%
+                                summarise(patent_mean = mean(patent),
+                                          rd_exp_mean = mean(rdexp),
+                                          n_firms = n())
+
+head(df_patents_new)
+```
+
+## **Multiple table verbs**
+`dplyr` also features verbs which you can apply to two tables. These are usually functions to join or merge two datasets. 
+
+### Mutating joins
+Mutating joins allow you to combine variables from multiple tables. To see how they work, let's create two small tibbles. 
+```{r}
+first_df = tibble(
+  country = c('Afghanistan', 'Belgium', 'China', 'Denmark'),
+  population = c(33369945, 11371928, 1382323332, 5690750)
+)
+# gdp in millions
+second_df = tibble(
+  country = c('Afghanistan', 'Belgium', 'Denmark', 'Germany'),
+  gdp = c(35146, 422809, 211916, 3232545)
+)
+head(first_df)
+head(second_df)
+```
+
+####  `left_join`
+The `left_join` function matches rows from the second dataframe to the first dataframe. All rows from the first dataframe are kept. 
+```{r}
+left_join(first_df, second_df, by = "country")
+```
+
+#### `right_join`
+The `right_join` function does exactly the opposite. It matches rows from the second dataframe to the first dataframe. All rows from the second dataframe are kept. 
+```{r}
+right_join(first_df, second_df, by = "country")
+```
+
+#### `inner_join`
+The `inner_join` function joins the data from both dataframes but only keeps those observations which exist in both dataframes. 
+```{r}
+inner_join(first_df, second_df, by = "country")
+```
+
+#### `full_join`
+The `full_join` function also joins the data from both dataframes but keeps all observations. 
+```{r}
+full_join(first_df, second_df, by = "country")
+```
+
+### Filtering joins
+Filtering joins are helpful if you want to filter the observations in one dataset based on whether they exist in the other dataset. 
+
+#### `semi_join`
+The `semi_join` function keeps all observations in the first dataframe which also exist in the second. 
+```{r}
+semi_join(first_df, second_df, by = "country")
+```
+
+#### `anti_join`
+The `anti_join` function drops all observations in the first dataframe which also exist in the second. 
+```{r}
+anti_join(first_df, second_df, by = "country")
+```
+
+**Disgression: the "%in%" operator**
+  
+Instead of using the filtering joins, we can also use the %in% operator which filters the values in a vector which also appear in another vector. For example:
+```{r}
+first_df %>% filter(country %in% second_df$country)
+```
+
+```{r}
+first_df %>% filter(!(country %in% second_df$country))
+```
+
+### The `by` argument
+The `by` argument controls by what variables two dataframes are matched. If you do not specify it, `dplyr` uses all variables that exist in both tables, a so-called natural join. In our examples we could also have left the `by` argument unspecified since both dataframes only share the variable `country`. 
+
+You can also pass character vector to specify by which variable the two dataframes are supposed to be matched. This is what we did in the preceding examples. 
+
+Finally, what to do if the variable by which you want to match has different names in the two dataframes. Use a named character vector!
+
+```{r}
+first_df = tibble(
+  country = c('Afghanistan', 'Belgium', 'China', 'Denmark'),
+  population = c(33369945, 11371928, 1382323332, 5690750)
+)
+# gdp in millions
+second_df = tibble(
+  country_name = c('Afghanistan', 'Belgium', 'Denmark', 'Germany'),
+  gdp = c(35146, 422809, 211916, 3232545)
+)
+full_join(first_df, second_df, by = c('country' = 'country_name')) 
+```
+As you can see, this matched variable `country` in our first dataframe with `country_name` in our second dataframe. The variable name for the resulting dataframe is `country`.
+
+
+
+## Reshaping data with `tidyr`
+Another thing that happens very often is that the datasets we obtain are not in the right format. What do I mean by 'right' here? 
+
+1. Every row is an observation. 
+2. Every column is a variable.
+3. Each cell contains the value of a variable for a specific observation. 
+
+Datasets which conform to these three principles are called `tidy` in the `R` world. There is now package called `tidyr` which helps you in converting untidy datasets to tidy ones. 
+```{r}
+library(tidyr)
+```
+
+In the following we will look at two cases which I will call dirty wide and dirty long datasets. 
+
+### From dirty wide to tidy long
+Have a look at the following small dataset, containing population data. 
+```{r}
+dirty_wide = as_data_frame(table4a)
+head(dirty_wide)
+```
+Are these tidy? No! First of all, we have column names which are actually variable values: 1999 and 2000. Secondly, it is not clear what data the cells contain. To reshape the data from dirty long to tidy long, we use the `gather` command.
+```{r}
+gather(dirty_wide, `1999`, `2000`, key = 'year', value = 'population')
+```
+How did this work? The first argument is the name of the dataset. The following arguments are the column names which are actually the values of a variable. We want these values to be stored in a variable called `year` so we write: `key = 'year'`. 'Key' in this context is just another word for variable name. Finally, we specify the variable name `population` for the values in our cells by writing `value = 'population'`. The result is a tidy long dataframe. 
+
+### From dirty long to tidy wide
+We can also have a dirty long dataframe. Look at the following tibble. 
+```{r}
+dirty_long = as_data_frame(table2)
+head(dirty_long)
+```
+Again this dataframe is not tidy.  The variable `type` contains variable names and the `count` variable the corresponding values. We want to reshape these data and create two variables `cases` and `population` with the cells containing the corresponding values. This can be accomplished using the `spread` command. 
+```{r}
+spread(dirty_long, key = type, value = count)
+```
+The first argument is the name of the dataframe again. Secondly, we specify the column, `type` in this case, which contains the variable names or keys. Finally, we specify the variable, `count`, which contains the values of the variables. The resulting dataframe is tidy again. 
+
+## Extra: Writing functions that take data frame columns as arguments 
+
+When using R, something that I struggled with for too long was running loops overs the columns of dataframes, or similarly, writing functions that take the columns of a dataframe as an input. I think this is something that comes up quite frequently so I'll explain it in this section. The code is taken from the following link: https://www.brodrigues.co/blog/2019-06-20-tidy_eval_saga/
+
+Lets assume that we want to create a function that takes a dataframe and two columns of the dataframe as inputs, and creates a new variable which is equal to one column divided by the other
+
+For this, we will use the embracing operator: "{{" The embrace operator {{ is used to create functions that call other data-masking functions. It transports a data-masked argument (an argument that can refer to columns of a data frame) from one function to another
+
+```{r}
+
+Division_function <- function(df, var1, var2) {
+  
+  new_var <- paste(quo_name(enquo(var1)), '_', quo_name(enquo(var2)), sep = "")
+  
+  df = df %>% mutate(new_var := {{ var1 }} / {{ var2 }})
+  
+  return(df)
+}
+```
+
+```{r}
+Division_function(df_patents, patent, rdexp)
+```
+Lets do another example. Lets create a function that create a column with the mean of another variable by group
+
+
+```{r}
+summarise_groups <- function(dataframe, grouping_var, column_name){
+
+  dataframe %>%
+    group_by({{ grouping_var }}) %>%  
+    summarise({{ column_name }} := mean({{ column_name }}, na.rm = TRUE))
+}
+```
+
+```{r}
+df_patents_summarised = summarise_groups(df_patents, year, patent)
+```
+
+If you would like to pass multiple arguments to a data-masking verb, pass ... directly:
+
+```{r}
+summarise_by <- function(data, ..., by) {
+  data %>%
+    group_by({{ by }}) %>%
+    summarise(...)
+}
+  
+df_patents %>%
+  summarise_by(
+    average = mean(spil, na.rm = TRUE),
+    maximum = max(spil, na.rm = TRUE),
+    by = year
+  )
+```
+
+

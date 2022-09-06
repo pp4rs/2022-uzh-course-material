@@ -1,0 +1,321 @@
+---
+title: "ggplot"
+output: html_document
+date: '2022-08-29'
+---
+
+Note: This file is greatly based on the material prepared by Julian Langer and Lachlan Deer for the programming course for previous years
+
+## Making plots with ggplot2
+
+I personally tend to forget the details about making graphs in R *every* time I have to make them, so here is a cheatsheet which may come in handy for when you have to make graphs, taken from the tidyverse package webpage: https://github.com/rstudio/cheatsheets/blob/main/data-visualization-2.1.pdf 
+
+```{r}
+library('ggplot2')    # graphics library
+library('tibble')     # nice dataframes
+```
+### The dataset
+
+Lets load a dataset which is included in the __ggplot__ library. 
+```{r}
+diamonds_df = as_data_frame(diamonds)
+head(diamonds_df) # look at the head of the dataset
+```
+Let's briefly look at this dataset. It includes the prices and features  of around 54 000 round cut diamonds. It contains the following variables (Hint: you can also look up the description of the dataset using `?diamonds` once you loaded `ggplot2`): 
+
++ __price__: price in US dollars 
++ __carat__: weight of the diamond
++ __cut__: quality of the cut (Fair, Good, Very Good, Premium, Ideal)
++ __color__: diamond colour from J (worst) to D (best)
++ __clarity__: clarity of the diamond (l1, SI1, SI2, VS1, VS2, VVS1, VVS2, IF)
++ __x__: length in mm
++ __y__: width in mm
++ __z__: depth in mm
++ __depth__: total depth percentage
++ __table__: width of top of diamond relative to widest point
+
+###  Basic example: an ordinary scatterplot
+We will start to build up the logic of the `ggplot2` command step by step. No matter which graphics you want to draw, you have to start as follows:
+
+```{r}
+ggplot(data = diamonds_df)
+```
+
+As you can see, if you execute this command, this opens an empty graphics windows and nothing else happens. This make sense. So far we have only told `ggplot` which data we want to use for the plot. 
+
+To actually see something we have to add a layer. Say we want to produce a scatter plot that shows us the association between the variables `carat` and `price`. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(aes(x = carat , y = price))
+```
+What have we done here? We have added a new layer to our empty plot. The function `geom_point` specifies that we want to add a scatterplot layer. the `aes` function which is a shorthand for `aesthetics`. Aesthetic mappings describe how variables in the data are mapped to visual properties (aesthetics) of geoms.
+
+In our case, we have specified to map the carat of the diamond to the x-axis and the price of the diamond to the y-axis. There seems to be a positive relationship between `carat` and `price` although it is noisier for higher carat levels. 
+
+
+Now let's do a simple histogram of the prices of the diamonds
+```{r}
+
+ggplot(data = diamonds_df) + 
+  geom_histogram(aes(x = price))
+```
+##  Aesthetics
+###  Aesthetic mappings 
+Of course, we can do more by adding further variables to our plot. Say we want to color the dots according to the clarity category. For this, we have to add the `color` argument to the `aes`function. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price, color = clarity))
+```
+There are also other aesthetics and we could have mapped the variable into each of them. We could have also just manually set a value for the aesthetics/ Some aesthetics are:
+
++ size of dots: either the name of a variable, or size in mm
++ for `shape`:  either the name of a variable, or shape of a point as a number
++ for `alpha`:  either the name of a variable, or value between 0 and 1
+
+Now we can use the fact that clarity is an ordered factor and color de dots differenty depending in whether clarity is above or below a certain threshold 'VS2':
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price, color = clarity > 'VS2'))
+```
+## Facets: Subplots for different variable values
+What if we want do not map all variables into aesthetics of one graph but want to have one graph for each value of a variable? For our dataset, we could for example be interested in how carat is associated with price for different values of the variable `cut`. For this, we need to split our plot into different facets (i.e. subplots) using the `facet_wrap` function.
+
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price)) + 
+  facet_wrap(. ~ cut, nrow = 2)
+```
+
+As you can see, for each value of the `cut` variable, we get a separate subplot. Note that you should pass a discrete variable to the `facet_wrap` function. The `nrow` argument specified into how many rows the plots are organized. We can also cross-tabulate subplots for different variables with the `facet_grid` function. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price)) + 
+  facet_grid(vars(cut), vars(clarity))
+```
+```{r}
+# Divide into rows
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price)) + 
+  facet_grid(clarity ~ .)
+# Divide into columns
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price)) + 
+  facet_grid( .  ~ clarity)
+```
+
+## Disgression on formulas ##
+
+You may have noticed the expression "clarity ~ cut" in the previous line. What is this expression exactly? It's a **formula in R**. These are mainly used in graphs (as above) and regressions (which we will see later). 
+
+A formula is of the form 'y ~ x + z + k'. Y is the dependent variable while x,z,k are the independent variables. 
+
+
+## Geoms
+### What kind of plot do you have in mind? The use of geoms. 
+So far we have just produced a scatterplot. We can of course also create other kinds of plots using different geometrical objects or `geoms`. For example, we could fit a smooth line to the data with `geom_smooth`. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_smooth(mapping = aes(x = carat, y = price))
+```
+
+Depending on the geometrical object, different aesthetics can be used. To see which aesthetics are available type `?geom_smooth`. Moreover, you can also see which additional arguments are available and which default values are set. In the following, we will change the confidence intervals and map the variable `cut` to the `color` aesthetic. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_smooth(mapping = aes(x = carat, y = price, color = cut), level = 0.9)
+```
+
+### Multiple geoms in one plot
+We can also put multiple geoms in one graph by creating multiple layers. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price), size = 0.2, alpha = 0.5) +
+  geom_smooth(mapping = aes(x = carat, y = price))
+```
+
+## Statistical tranformations with `stats`
+When you use `ggplot`, there is always a statistical tranformation - a stat - of the data running in the background. 
+Consider the following dataframe:
+
+```{r}
+test_df <- tibble(
+  colors = c("green", "blue", "red", "black", "white"),
+  numbers = c(20, 40, 50, 66, 8)
+)
+head(test_df)
+```
+Imagine we want to create a bar plot with the hight of the bars being the value of "numbers" 
+
+```{r}
+ggplot(data = test_df) + 
+  geom_bar(mapping = aes(x = colors))
+```
+
+Well, this is not what we wanted. The `x` axis plots the categories for 'colors'. The variable `count` is plotted on the y-axis. But you will not find the variable `count` in our dataset. `Ggplot` created a new dataframe with the variable `colors` and the variable `count` for each category and plotted this to the figure. This is an example of the `count` stat!
+
+However, we want the geom to use the data in the `numbers` variable for the y-axis. We need to use a different stat. 
+
+```{r}
+ggplot(data = test_df) + 
+  geom_bar(mapping = aes(x = colors, y = numbers), stat = "identity")
+```
+We can also plot the mean by color. Let's add two observations to the dataframe
+
+```{r}
+test_df <- tibble(
+  colors = c("green", "blue", "red", "black", "white", "green", "green"),
+  numbers = c(20, 40, 50, 66, 8, 10, 10)
+)
+
+```
+
+```{r}
+ggplot(data = test_df) + 
+  geom_bar(mapping = aes(x = colors, y = numbers), stat = "summary", fun = "mean")
+```
+
+Again, there are tons of statistical transformations in `ggplot`.
+
+## Positions 
+Ok, now it is time to talk about position adjustments.  What happens in our histograms when we map a variable to the `fill` aesthetic?
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_bar(mapping = aes(x = cut, fill = clarity), position = 'stack')
+```
+This is cool, right? The bars for each `clarity` category are stacked upon each other for each `cut` category. This is because `ggplot` automatically uses the `stack` position adjustement when drawing `geom_bar`. There are more options however. 
+
+ If you instead use the `fill` position, bars are stacked upon each other, but each stack of bars is forced to have the same height. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_bar(mapping = aes(x = cut, fill = clarity), position = "fill")
+```
+
+Third, you can also use the `dodge` position to make a useful change to the bar plot. This places the bars next to each other. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_bar(mapping = aes(x = cut, fill = clarity), position = "dodge")
+```
+
+
+## Coordinate systems
+The default coordinate system used by `ggplot` is the Cartesian one (`coord_cartesian`). I will only briefly introduce some other useful commands here. Rest assured that there is again much more to say here.
+
+You can quickly flip axes using the `coord_flip` command. Let's just do this to one of our bar charts. 
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_bar(mapping = aes(x = cut)) + 
+  coord_flip()
+```
+
+With the `coord_trans` function you plot data to a Cartesian coordinate system, where axes are transformed by a function. 
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price)) + 
+  coord_trans(x = "log", y = "log")
+```
+
+Sometimes you want to have a fixed aspect ratio for your coordinate system, you can use the `coord_fixed` command to create a Cartesian coordinate system with a fixed aspect ratio between `x` and `y` units. 
+
+## Labeling 
+So far, we looked at the construction of graphs but did not change labels. We can do this using the `labs` function. In this case, we add a title and labels for the x-axis and y-axis as well as the legend. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price, color = clarity)) + 
+  labs(title = "Relationship between weight and price of diamonds", 
+       x = "Weight in carat", 
+       y = "Price in dollars", 
+       color = "Clarity")
+```
+
+## Scales
+Scales control the details of how data values are translated to visual properties. Override the default scales to tweak details like the axis labels or legend keys, or to use a completely different translation from data to aesthetic. labs() and lims() are convenient helpers for the most common adjustments to the labels and limits.
+
+We will talk here specifically about three things that we can tweak using scale functions: axis ticks, legend labels and color schemes. 
+
+To change the axis ticks, you have to pass the `breaks` argument with the desired breaks to the scales. 
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price, color = clarity)) + 
+  labs(title = "Relationship between weight and price of diamonds", 
+       x = "Weight in carat", 
+       y = "Price in dollars", 
+       color = "Clarity") +
+  scale_x_continuous(breaks = seq(0, 5, 0.5)) + 
+  scale_y_continuous() + 
+  scale_color_discrete()
+```
+You can also change the labels by passing the `labels` argument to the scale with the vector of desired labels. 
+
+Next, we want to change the labels for our legend. These are related to the color aesthetic. We can just pass the `labels` argument with the vector of desired labels. In this example, I just pass a vector of numbers. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price, color = clarity), size = 0.2) + 
+  labs(title = "Relationship between weight and price of diamonds", 
+       x = "Weight in carat", 
+       y = "Price in dollars", 
+       color = "Clarity") +
+  scale_x_continuous() + 
+  scale_y_continuous() + 
+  scale_color_discrete(labels = seq(1, 8))
+```
+
+Finally, what if you want to change the color of our graph? It is obviously related to the color aesthetic. In this case, we don't have to pass an argument to the scale function but instead have to completely replace the scale. 
+```{r}
+# brewer scales at http://colorbrewer2.org
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price, color = clarity), size = 0.2) + 
+  labs(title = "Relationship between weight and price of diamonds", 
+       x = "Weight in carat", 
+       y = "Price in dollars", 
+       color = "Clarity") +
+  scale_x_continuous() + 
+  scale_y_continuous() + 
+  scale_color_brewer(palette = "Reds")
+```
+If you want to manually set colors, you can do so with the `scale_color_manual` function. 
+
+## Themes
+You can also change the complete non-data elements of your graph by applying the `theme` function. You have the following themes available: 
+
+* `theme_bw`: white background with grid lines
+* `theme_classic`: classic theme; axes but not grid lines
+* `theme_dark`: dark background for contrast
+* `theme_gray`: default theme with grey background
+* `theme_light`: light axes and grid lines
+* `theme_linedraw`: only black lines
+* `theme_minimal`: minimal theme, no background
+* `theme_void`: empty theme, only geoms are visible
+
+There is also a package called `ggthemes` which gives you a ton of other templates. In the following, we just switch our graph to the classic theme. 
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price, color = clarity), size = 0.2) + 
+  labs(title = "Relationship between weight and price of diamonds", 
+       x = "Weight in carat", 
+       y = "Price in dollars", 
+       color = "Clarity") +
+  scale_color_brewer(palette = "Reds") +
+  theme_classic()
+```
+
+## Saving graphs
+We can save the graphs using the `ggsave` function. Look up the help file for `ggsave` to see into which formats you can export your plot. Here is an example:
+
+```{r}
+ggplot(data = diamonds_df) + 
+  geom_point(mapping = aes(x = carat, y = price) )
+ggsave("myplot.pdf")
+```
+

@@ -1,0 +1,693 @@
+---
+title: "R basics"
+output: html_document
+date: '2022-09-04'
+author: 'Agustina Colonna'
+---
+
+This file is greatly based on the material prepared by Julian Langer and Lachlan Deer for the programming course for previous years
+
+### Python vs R discussion ###
+
+https://cepr.org/voxeu/columns/choosing-numerical-programming-language-economic-research-julia-matlab-python-or-r
+https://www.coursera.org/articles/python-or-r-for-data-analysis
+https://www.rstudio.com/blog/why-rstudio-supports-python/
+
+### R Markdowns https://rmarkdown.rstudio.com/lesson-1.html 
+Cmd + option + i for new chunk
+
+
+## Installing and loading packages 
+
+Additional functionalities are available in R packages. To install these you have to use the `install.packages` function. The package name has to be passed as a string. 
+
+```{r}
+rm(list = ls())
+#install.packages('dplyr')
+library(dplyr)
+```
+
+**Shortcuts**
+Here are some shortcuts for R
+Ctrl (command) + shift + n to create a new script 
+ctrl + shift + R to create new section in script
+ctrl + shirt + m for pipe operator
+more: https://support.rstudio.com/hc/en-us/articles/200711853-Keyboard-Shortcuts-in-the-RStudio-IDE
+
+See working directory
+
+```{r}
+getwd()
+```
+
+Instead of setting the working directory explicitly, we create a new `R` project.
+In order to do so, we click on *File* > *New Project* and create a new project folder in a directory of our choice. 
+
+## R Projects 
+
+An R project enables your work to be bundled in a portable, self-contained folder.
+Within the project, all the relevant scripts, data files, figures/outputs, and history are stored in sub-folders and - the working directory is the project’s root folder.
+The .Rhistory file in the project's main directory is loaded into the RStudio History pane (and used for Console Up/Down arrow command history).
+We may want to access a database from a subfolder: setwd('./Datasets')
+
+## Creating and removing objects 
+
+```{r}
+
+x <- 2
+y <- 8
+z <- 10
+  
+x+y
+```
+
+See which objects are available in our workspace
+
+```{r}
+ ls()
+```
+
+Remove objects
+
+```{r}
+rm(z)
+```
+
+Remove all objects 
+
+```{r}
+# rm(list = ls())
+```
+
+
+## Types of objects: logical, numeric (double and integers) , characters,
+
+Logical vectors (or booleans) can have three different values in R: 
+```{r}
+TRUE
+FALSE
+NA
+```
+The first two you already know from Python. What about the third one? It is R's way of saying something is not available. For example, assume you have missing data in your dataframe and you conduct a logical comparison such as whether a value is bigger than 3. If a value is missing, then the resulting comparison for that row cannot be `TRUE` or `FALSE` but `NA`.
+
+```{r}
+class(T)
+class(2)
+class(2.5)
+```
+
+As you can see, R stores every number as a double by default. This takes up a lot of memory so if you are sure you only need integers you can append the number with a 'L' to force the coercion to integer values. 
+  
+```{r}
+class(2L)
+class("Hello")
+```
+
+
+## Vector coercion
+Just like Python, R features implicit as well as explicit coercion. You can do explicit coercion: 
+
+```{r}
+as.character(x)
+as.integer(2.3)
+#as.factor(4)
+```
+
+I will now give you some examples of implicit coercion: 
+
+```{r}
+
+class(T + F)
+
+if (0){
+  print('Converted to True')
+} else {
+  print('Converted to False')
+}
+
+```
+
+
+## Vectors with multiple values 
+
+
+```{r}
+my_numbers <- c(1,2,3)
+my_sequence = 1:4
+my_sequence_2 <- seq(1,11,2) #va de 2 en 2
+
+class(my_numbers)
+class(my_sequence)
+```
+
+If you create a vector with values of different type, R will automatically fall back to the most comprehensive type. 
+
+```{r}
+my_vector <- c(1, F)
+class(my_vector)
+
+my_vector <- c(1,'Hola', F)
+class(my_vector)
+
+```
+
+
+## Operating with vectors and recycling
+
+```{r}
+my_numbers * 2
+c(1,2,3,4) + c(1,2)
+```
+
+Since the second vector is shorter than the first one, it gets recycled, i.e. it gets copied until it has the same length as the first one. 
+Only if the length of one vector is the multiple of the length of the other vector!
+
+## Named vectors 
+
+```{r}
+my_named_vector = c(a = 1, b = 2, c = 3, d = 4)
+my_named_vector
+class(my_named_vector)
+```
+
+## Subsetting vectors
+
+```{r}
+my_sequence_2[2]
+my_sequence_2[-2]
+my_sequence_2[my_sequence_2<5]
+my_named_vector['b'] + my_named_vector['c']
+my_named_vector[c('a','b')]
+```
+
+
+## Lists 
+
+Lists differ from atomic vectors in that they can be heterogenous, i.e. store vectors or elements of different types and are recursive in that they can contain other lists.  
+
+```{r}
+my_list = list(1, 2, 3, 4)
+class(my_list)
+my_list_2 = list(my_sequence)
+
+#list of two lists
+my_list = list(list(1, 2), list('a', 'b'))
+```
+
+Subsetting lists: 
+There are two subsetting functions which you can apply to lists, `[]` and `[[]]`:
+1. __To get a sublist__: If you use `[]` with lists, you get a sublist. For example, if we enter '4' for the last element in our list, we get a list in return which contains the list named 'd'. 
+2. __To get the element itself__: If you use `[[]]`, you get the element itself. For example, if we enter '4' for the last element in our list, we get the list itself. 
+
+```{r}
+my_list[1]
+class(my_list[[2]])
+my_list_2[[1]]
+my_list_2[[1]][2] # If you use `[]` with lists, you get a sublist
+class(my_list_2[[1]][2])
+```
+
+
+## Conditionals 
+An if-else structure is useful if you want to execute different code blocks depending on whether a certain statement is evaluated as `TRUE` or `FALSE`: 
+
+```{r}
+if (x>4){
+  print('High')
+} else {
+  print('Low')
+}
+
+# another way: 
+
+if_else(x>5, 'High', 'Low')
+
+# If we want to check more than case, we can use the `if - else if - else` structure.
+
+if (x>6){
+  print('High')
+} else if (x < 3) {
+  print('Very Low') 
+} else {
+  print('Med - Low')
+}
+```
+
+
+  
+## Checking multiple cases with `switch`
+
+```{r}
+operation = 'plus' 
+switch(operation, 
+       plus = x + y,
+       minus = x - y,
+       times = x * y,
+       divide = x / y, 
+       stop('You specified an unknown operation!')
+)
+
+```
+
+
+
+## Comparison and logical operators ----------------------------------------
+
+Identical vs ==. == compares only first element. Identical compares whole vectors 
+
+```{r}
+A = c(1, 2, 3, 4)
+B = c(1, 3, 4, 5)
+
+A == B
+
+identical(A, B)
+```
+
+A disadvantage of `identical` is that you have to be very specific regarding types: 
+
+```{r}
+identical(0L, 0)
+```
+
+
+## Functions in R 
+
+We need three things to define a function:
+
+1. a function name, in this case it's `calc_percent_missing`,
+2. function arguments, in this case it's just one, the vector `x`,
+3. the function body which is enclosed by curly parentheses
+
+```{r}
+calc_percent_missing = function(x){
+  mean(is.na(x))
+}
+calc_percent_missing(c(1, 2, 6, 3, 7, NA, 9, NA, NA, 1))
+
+# Default values
+
+cobb_douglas = function(x, a = 0.5, b = 0.5) {
+  u = x[1]**a * x[2]**b
+}
+x = c(1, 2) 
+print(cobb_douglas(x))
+print(cobb_douglas(x, b = 0.4, a = 0.6))
+```
+
+Sometimes you might want to write a function which takes an arbitrary number of arguments. You can do this with the dot-dot-dot argument. I demonstrate its usefulness with a nice little function by Hadley Wickham. Note that `str_c` is a function to combine strings into a single one. 
+
+```{r}
+commas <- function(...) {
+  paste(..., collapse = ", ")
+}
+commas(c(x, letters[1:10]))
+```
+
+## Loops 
+
+
+```{r}
+df <- tibble::tibble(
+  a = rnorm(10),
+  b = c(rnorm(9), NA),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+```
+
+  
+## Looping over numeric indices
+
+```{r}
+output = vector("double", ncol(df))
+
+for (i in seq_along(df)){
+  output[i] = mean(df[[i]], na.rm = T)
+}
+
+output
+```
+
+The second line contains the looping statement. The `seq_along` function acts as a safe alternative to `length` here. Why is it safer your ask?
+
+```{r}
+test_vector = vector("double", 0)
+seq_along(test_vector)
+1:length(test_vector)
+```
+
+If the vector is of length zero, writing 1:length gives you 1,0!
+
+Why did I use `[[]]` for subsetting the dataframe? 
+
+## Looping over elements
+
+```{r}
+for (x in df) {
+  print(median(x, na.rm = T))
+}
+```
+
+
+## Loop over strings
+ 
+```{r}
+for (string in colnames(df)) {
+  print(median(df[[string]], na.rm = T))
+}
+```
+
+## While loop
+
+```{r}
+i = 0
+while(i<5){
+  print(i)
+  i = i+1
+}
+```
+## Break statement in loops
+A break statement is used inside a loop (repeat, for, while) to stop the iterations and flow the control outside of the loop.
+
+```{r}
+x <- 1:5
+for (val in x) {
+if (val == 3){
+break
+}
+print(val)
+}
+```
+
+
+## Split, apply, combine ---------------------------------------------------
+
+
+ Very often we want to loop over a vector, do something to each element of the vector and then save the results. You could also summarize this as split - apply - combine. The `purrr` package provides the functionalities for such operations in a handy manner. Let's start with a basic example.
+The map functions transform their input by applying a function to each element and returning a vector the same length as the input.
+
+
+```{r}
+library(purrr)
+median_vector = map_dbl(df, median)
+```
+  
+Example with map_df: Read and bind many csv files CREATE CSV FILES HERE
+  final_data = map_df(listoffiles, read_csv)
+  map_df().This will apply a function to elements of a list, and then bind (bind_rows() i.e. puts df stacked one on top of the other) the dataframes together (assuming they can be combined). It also allows us to specify additional columns for our final dataframe which takes the names of the elements of the list.
+
+
+## Apply, lapply, tapply, sapply---------------------------------------------------
+
+**apply** function output is one dimension smaller than input (Can choose to do it across rows (1) or columns (2))
+ apply(X, margin, function)
+
+```{r}
+
+  vector_means = apply(df, c(2), mean, na.rm=T)
+  vector_means
+```
+
+
+**lapply** function output is same shape as input
+
+
+```{r}
+square_function = function(X) {
+  X^2
+}
+
+squares = lapply(df, square_function)
+class(squares)
+length(squares)
+data.frame(squares)
+```
+
+**tapply** function computes a measure (e.g mean) for a group of observations in a vector
+
+```{r}
+data(iris)
+mean_byspecies = tapply(iris$Sepal.Length, iris$Species, mean)
+class(mean_byspecies)
+
+df_meanspecies = data.frame(names(mean_byspecies),mean_byspecies)  
+head(df_meanspecies)
+```
+
+**sapply()** function takes list, vector or data frame as input and gives output in vector or matrix.
+It is useful for operations on list objects and returns a list object of same length of original set. 
+Sapply function in R does the same job as lapply() function but returns a vector instead of a list
+
+```{r}
+squares = sapply(df, square_function)
+squares
+length(squares)
+class(squares)
+dim(squares)
+```
+
+
+## ARRAYS and MATRICES 
+
+Create two vectors of different lengths.
+
+```{r}
+vector1 <- c(5,9,3)
+vector2 <- c(10,11,12,13,14,15)
+```
+
+Take these vectors as input to the array.
+
+```{r}
+result <- array(c(vector1,vector2),dim = c(3,3))
+print(result)
+result <- array(c(vector1,vector2),dim = c(3,3,2))
+print(result)
+```
+
+Creating matrices:
+
+```{r}
+matrix1 = matrix(c(2.8, 1.6, 0, 1.6, 4.2, 0, 0, 0, 2.1), 3, byrow = TRUE)
+matrix1
+a = c(3, -1, 0)
+t(a) %*% matrix1 %*% a
+
+matrix1
+matrix1_inv = solve(matrix1)
+matrix1 %*% matrix1_inv #identify
+
+matrix2 = matrix(c(15, 4, 7, 8, 10, 9), 2, byrow = TRUE)
+matrix2
+t(matrix2)
+
+matrix2 %*% matrix1 # 2*3 times 3*3
+```
+
+
+We can also use apply with matrices
+
+```{r}
+apply(result, c(1), sum)
+apply(result, c(2), sum)
+apply(result, c(3), sum)
+```
+
+  
+## Simulations in R --------------------------------------------------------
+
+
+This example will be useful to practic sapply and functions as well
+**P value simulations**
+
+```{r}
+n = 1000
+N = 10000
+
+gen_pval = function(i, mean, variance, n){
+  
+  x = rnorm(n,mean,variance)
+  t = mean(x)*sqrt(n)/sqrt(var(x))
+  
+  pvalue = pnorm(t, lower.tail = F)
+}
+
+#H0 true
+pvalues = sapply(1:N, gen_pval, mean=0, variance = 60, n = 1000)
+hist(pvalues) #Distribution of p values
+
+#H0 false
+pvalues = sapply(1:N, gen_pval, mean=4, variance = 60, n = 1000)
+hist(pvalues) #Distribution of p values
+```
+
+you can also sample from other distributions:
+
++ rnorm: normal
++ rexp: exponential
++ runit: uniform
+  
+## EXERCISE: 
+  
+Exercise 1: Create a list with two vectors and one matrix
+  
++ sum all the numbers  in the list
++ create a one dimensional vector with all the numbers in the list
+  
+```{r}
+ver =list(c(1,2,3), c(4,5), matrix(c(15, 4, 7, 8, 10, 9), 2, byrow = TRUE))
+
+sum(ver[[1]], ver[[2]], ver[[3]])
+
+c(ver[[1]], ver[[2]], ver[[3]])
+```
+
+```{r}
+list = list(c(1,2,3), c(4,5,6))
+
+sum(list[[1]] , list[[2]])
+sum(list[[1]])
+c(list[[1]] , list[[2]])
+```
+
+
+Exercise 2: Write a function that takes as an input a vector and an integer. The function computes the mean of the array and, if the mean is larger than the number it displays "mean is higher" and if not, is displays "mean is lower"
+
+```{r}
+ fun_1 <- function(v,n){
+   
+   avg = mean(v)
+   
+   if(avg>n){
+     print("mean is higher")
+   } else {
+     print('mean is lower')
+   }
+ }
+ 
+ fun_1(c(1,2,15,20), 20)
+```
+
+
+Exercise 3: Create a function that takes as input a number N and:
+  (i) sums the number from a to N and prints the result
+  (ii) computes N(N+1)/2 and sums the result
+  (iii) sums all the even numbers and prints the result
+ 
+```{r}
+
+ fun_2 <- function(N){
+   print(sum(1:N))
+   print(N*(N+1)/2)
+   print(sum(seq(2,N,2)))
+ }
+ 
+ fun_2(30)
+```
+
+ 
+Exercise 4: Create function that takes as an input a number N and tells you whether N is prime number or not
+
+
+```{r}
+
+fun_3 = function(num){
+ if(num > 2) {
+   prime = 1
+   for(i in 2:(num-1)) {
+     if ((num %% i) == 0) {
+       prime = 0
+       break
+     }
+   }
+ } 
+ if(num == 2)    prime = 1
+ if(prime == 1) {
+   print(paste(num,"is a prime number"))
+ } else {
+   print(paste(num,"is not a prime number"))
+ }
+}
+
+fun_3(8)
+```
+
+Exercise 5
+
+Assume demand for a product is Q_d = -P + 15 and supply function is Q_s = 2P + 3. Find the equilibrium Q and P using loops
+
+```{r}
+
+P = 8
+diff = 10
+while (diff!=0) {
+  
+   Q_d = -1 * P + 15
+   Q_s = 2*P + 3
+   
+   diff = Q_d - Q_s
+   
+   if (diff>0){
+     P = P + 1
+   } else {
+     P = P - 1
+   }
+}
+
+print(P)
+print(diff)
+
+
+```
+
+
+Exercise 6: Simulation showing the CLT. 
+
+Simulate a vector of means from the exponential distribution by repeatedly taking the mean (10000 times) of a sample from the exponential distribution with sample size equal to n and lamda = 0.2 
+
+In addition, generate a sample from a normal distribution with mean 1/lambda and variance 1/(n*(lambda^2)) (note that for exponential distribution with parameter lambda, the mean is 1/lambda and variance is 1/lambda^2)
+
+Plot a histogram of the distribution of means for your simulated mean distribution and for the sample from the normal distribution. Change the sample size N to show how the distribution of the mean approximates the normal distribution 
+
+note that to include to histograms in the same graph you much type:
+
+hist(vector1)
+hist(vector2, add = T)
+
+
+```{r}
+mean_exponential = function(i, n, lambda) {
+
+  mean_exp = mean(rexp(n, lambda))
+}
+
+reps = 10000
+
+# N = 3
+clt_vector = sapply(1:reps, mean_exponential,n= 3, lambda = 0.2 )
+normal = rnorm(reps, 1/0.2, sqrt(1/(3*(0.2^2))))
+hist(clt_vector, col=rgb(1,0,0,1/4))
+hist(normal, col=rgb(0,0,1,1/4) , add=TRUE)
+
+# N = 10
+clt_vector = sapply(1:reps, mean_exponential,n= 10, lambda = 0.2 )
+hist(clt_vector)
+clt_vector = sapply(1:reps, mean_exponential,n= 30, lambda = 0.2 )
+hist(clt_vector)
+clt_vector = sapply(1:reps, mean_exponential,n= 1000, lambda = 0.2 )
+hist(clt_vector)
+
+
+normal = rnorm(reps, 1/0.2, sqrt(1/(1000*(0.2^2))))
+hist(clt_vector, col=rgb(1,0,0,1/4))
+hist(normal, col=rgb(0,0,1,1/4) , add=TRUE)
+```
+
+
+
+  
+  
+  
+  
+  

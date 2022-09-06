@@ -1,0 +1,176 @@
+---
+title: "Factors_and_Strings"
+output: html_document
+date: '2022-08-28'
+---
+
+This file is greatly based on the material prepared by Julian Langer and Lachlan Deer for the programming course for previous years
+
+## Working with strings
+
+```{r}
+library(stringr)
+library(tibble)
+library(dplyr)
+library(ggplot2)
+```
+
+## String combine with `str_c`
+```{r}
+our_string = c("With", "great", "power", "comes", "great", "responsibility")
+str_length(our_string)
+length(our_string) #note the difference between length and str_length
+```
+Pasting together strings
+
+```{r}
+str_c("Hello", "World", sep = " ")
+```
+```{r}
+str_c(our_string,  collapse = " ")
+```
+## Substrings  with `str_sub`: str_sub(string, start = 1L, end = -1L)
+```{r}
+str_sub(our_string, 2, 4)
+str_sub(our_string, -1, -1)
+str_sub(our_string, -2, -1)
+```
+## Capitalize or not
+```{r}
+str_to_lower(our_string)
+str_to_upper(our_string)
+str_to_title(our_string)
+# specify locale to be sure that behavior is consistent with locale option
+str_to_title(our_string, locale = "en")
+```
+## String sort
+```{r}
+str_sort(our_string)
+```
+## Handling NAs
+```{r}
+another_string = c(NA, "Hello", "World")
+str_c(another_string, collapse = " ")
+str_c(str_replace_na(another_string, replacement = ""), collapse = " ")
+str_c(na.omit(another_string), collapse = " ")
+```
+## Finding an expression in a string
+
+```{r}
+str_detect(our_string, "a")
+str_detect(our_string, "a|W")
+str_detect(our_string, "[aeiou]")
+str_detect(c('8','1'), "[0-5]")
+str_detect(our_string, "s$") # s at end of string
+str_detect(our_string, "^G") # G at beginning of string
+```
+A bit more tricky: Find expressions with an o followed by an s, with any number of characters in the middle (a sequence of at least one character that isn’t a space: [^ ]+)
+
+```{r}
+our_string = c("oas", "os", "oa", "ot", "olkjdnsa", "so")
+str_detect(our_string, "o[^ ]+s|os") #  o followed by s
+```
+
+## Return whole strings containing a certain expression
+```{r}
+str_subset(our_string, "a")
+```
+
+## Replacing an expression in a string
+
+```{r}
+str_replace(our_string, 'a', 'L')
+```
+
+## Working with factors
+
+In R, factors are used to work with categorical variables, variables that have a fixed and known set of possible values. They are also useful when you want to display character vectors in a non-alphabetical order
+
+Factors are the data objects which are used to categorize the data and store it as levels. They can store both strings and integers
+
+
+## Creating Factors
+
+```{r}
+my_dataframe = tibble(
+  age = c(12, 17, 11, 8),
+  gender = c("Male", "Male", "Female", "Female"),
+  review = c("C", "B", "B", "A")
+)
+```
+
+```{r}
+my_dataframe = my_dataframe %>%
+  mutate(gender = factor(gender, levels = c("Male", "Female"))) %>% 
+  mutate(review = factor(review, levels = c("C", "B", "A"), ordered = TRUE))
+head(my_dataframe)
+```
+So, we created an ordered as well as an unordered factor. If you want to see the values for the factor levels, use `levels`. 
+```{r}
+levels(my_dataframe$gender)
+
+levels(my_dataframe$review)
+```
+Why would we want an ordered factor? One reason is that we can filter using '>' or '<' based on ordered factors
+Another reason is that they can be very useful when we want to make plots, and we want the variables in the x axis to have a specific order
+
+## Some other useful functions from forcats
+```{r}
+library(forcats)
+```
+
+### Modify factor levels 
+```{r}
+my_dataframe = my_dataframe %>%
+  mutate(review = fct_recode(review,
+                             "Very Good" = "A",
+                             "Good"      = "B", 
+                             "Bad"       = "C"))
+head(my_dataframe)
+```
+
+No bad people.
+
+```{r}
+my_dataframe = my_dataframe %>%
+  mutate(review = fct_recode(review,
+                             "Good" = "Bad"))
+head(my_dataframe)
+```
+
+# Ordered factors are very useful for plotting
+
+Now we use on forcats::gss_cat. It’s a sample of data from the General Social Survey, which is a long-running US survey conducted by the independent research organization NORC at the University of Chicago
+
+```{r}
+gss_cat
+
+```
+```{r}
+relig_summary <- gss_cat %>%
+  group_by(relig) %>%
+  summarise(
+    age = mean(age, na.rm = TRUE),
+    tvhours = mean(tvhours, na.rm = TRUE),
+    n = n()
+  )
+#> `summarise()` ungrouping output (override with `.groups` argument)
+levels(relig_summary$relig)
+
+ggplot(relig_summary, aes(tvhours, relig)) + geom_point()
+```
+
+```{r}
+ggplot(relig_summary, aes(tvhours, fct_reorder(relig, tvhours))) +
+  geom_point()
+```
+```{r}
+gss_cat %>% filter(relig == 'Protestant')
+```
+factors are also useful to include categorical variables in a regression
+
+```{r}
+lm(tvhours ~ age, data = gss_cat)
+lm(tvhours ~ as.factor(age), data = gss_cat)
+```
+
