@@ -1,0 +1,79 @@
+---
+title: "My first (not really) R markdown document"
+author: "Martin Stancsics"
+date: '2022-09-07'
+output:
+  html_document: default
+  pdf_document:
+    includes:
+      in_header: "preamble.tex"
+    keep_tex: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+I can hav a paragraph here, just like in LaTeX.
+
+# Section
+
+We can have formulas, like the one for an OLS $$ \hat\beta = (X'X)^{-1} (X'Y) $$
+
+## This is a subsection
+
+### And a subsection
+
+# Data stuff
+
+```{r}
+print("Hello, World!")
+```
+
+```{r, echo=FALSE}
+library(tibble)
+df = as_tibble(cars)
+# an R comment
+head(df)
+```
+
+<!-- I have some useless stuff -->
+
+You might want text formatting stuff, like *italics* or **bold**.
+
+Or even lists:
+
+-   first element
+-   second elemnt
+
+Even with numbers:
+
+1.  dog
+2.  cat
+
+```{=tex}
+\begin{itemize}
+  \item Latex first element
+  \item \LaTeX second element
+\end{itemize}
+```
+```{=tex}
+\begin{table}
+  \centering
+  \begin{tabular}{lc}
+    \toprule
+    C1 & C2 \\
+    1 & 2
+  \end{tabular}
+\end{table}
+```
+```{r}
+library(ggplot2)
+p = ggplot(diamonds) +
+  geom_point(aes(x = price, y = clarity))
+ggsave("my_fig.pdf", plot = p)
+```
+
+```{r}
+knitr::include_graphics("my_fig.pdf")
+```
